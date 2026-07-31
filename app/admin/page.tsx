@@ -6,7 +6,7 @@ import {
   DEFAULT_WEEKLY_TASKS,
   DM_PAGES,
   DM_SLOTS,
-  PREPARED_BY,
+  PREPARED_BY_KEY,
   Section,
   Group,
   Item,
@@ -30,6 +30,7 @@ function ReportView({
   dailyState: StateMap;
   weeklyState: StateMap;
 }) {
+  const preparedBy = dailyState[PREPARED_BY_KEY] || "Not recorded";
   function renderSections(sections: Section[], state: StateMap) {
     return sections.map((s) => {
       const rows: React.ReactElement[] = [];
@@ -89,6 +90,9 @@ function ReportView({
 
   return (
     <div>
+      <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 10, textTransform: "uppercase", letterSpacing: ".05em" }}>
+        Prepared by: <b style={{ color: "var(--ink)" }}>{preparedBy}</b>
+      </div>
       <h3 style={{ fontFamily: "Oswald,sans-serif" }}>Daily Tasks</h3>
       {renderSections(dailyTasks, dailyState)}
       <h3 style={{ fontFamily: "Oswald,sans-serif" }}>Weekly Tasks</h3>
@@ -487,12 +491,6 @@ export default function AdminPage() {
       <header>
         <div className="eyebrow">Factoryfeed &middot; Admin</div>
         <h1>Admin Panel</h1>
-        <div className="docket-row">
-          <div className="docket-field">
-            Signed In As
-            <span>{PREPARED_BY}</span>
-          </div>
-        </div>
         <div className="action-row">
           <a href="/" className="action-btn secondary">
             ← Back to Checklist
