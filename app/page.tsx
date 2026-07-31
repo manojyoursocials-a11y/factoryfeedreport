@@ -6,7 +6,8 @@ import {
   DEFAULT_WEEKLY_TASKS,
   DM_PAGES,
   DM_SLOTS,
-  PREPARED_BY,
+  PREPARED_BY_OPTIONS,
+  PREPARED_BY_KEY,
   Section,
   flattenKeys,
   todayKey,
@@ -184,6 +185,11 @@ export default function Home() {
     0
   );
   const pct = dailyTotal ? Math.round((dailyChecked / dailyTotal) * 100) : 0;
+  const preparedBy: string = dailyState[PREPARED_BY_KEY] || "";
+
+  function choosePreparedBy(name: string) {
+    setDailyState((s) => ({ ...s, [PREPARED_BY_KEY]: name }));
+  }
 
   function showToast(msg: string) {
     setToast(msg);
@@ -224,7 +230,7 @@ export default function Home() {
       return out;
     }
     return (
-      `FACTORYFEED — DAILY OPS REPORT\n${dateStr}\nPrepared by: ${PREPARED_BY}\n` +
+      `FACTORYFEED — DAILY OPS REPORT\n${dateStr}\nPrepared by: ${preparedBy || "—"}\n` +
       block("DAILY TASKS", dailyTasks, dailyState) +
       block("WEEKLY TASKS (current week)", weeklyTasks, weeklyState)
     );
@@ -289,7 +295,7 @@ export default function Home() {
         @media print{ body{padding:14px;} }
       </style></head><body>
       <h1>Factoryfeed &middot; Daily Ops Report</h1>
-      <div class="r-date">${dateStr} &middot; Prepared by ${PREPARED_BY}</div>
+      <div class="r-date">${dateStr} &middot; Prepared by ${preparedBy || "—"}</div>
       <h2>Daily Tasks</h2>
       ${sectionHTML(dailyTasks, dailyState)}
       <h2>Weekly Tasks (current week)</h2>
@@ -330,7 +336,7 @@ export default function Home() {
           </div>
           <div className="docket-field">
             Prepared By
-            <span>{PREPARED_BY}</span>
+            <span>{preparedBy || "—"}</span>
           </div>
           <div className="overall-wrap">
             <div className="docket-field">Today's Progress</div>
@@ -341,16 +347,61 @@ export default function Home() {
           </div>
         </div>
         <div className="action-row">
-          <div className="action-btn" onClick={downloadReport}>
+          <div
+            className="action-btn"
+            onClick={preparedBy ? downloadReport : undefined}
+            style={!preparedBy ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+          >
             ⬇ Download Report (PDF)
           </div>
-          <div className="action-btn secondary" onClick={copyReport}>
+          <div
+            className="action-btn secondary"
+            onClick={preparedBy ? copyReport : undefined}
+            style={!preparedBy ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+          >
             Copy as Text (WhatsApp/Email)
           </div>
           <span className="save-pill">{ready ? "Synced to server" : "Loading..."}</span>
         </div>
       </header>
 
+      {ready && !preparedBy && (
+        <div className="login-box" style={{ marginTop: 40 }}>
+          <h2>Who's completing today's checklist?</h2>
+          <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>
+            Select your name to continue. This is required once per day and appears on today's saved report.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
+            {PREPARED_BY_OPTIONS.map((name) => (
+              <label
+                key={name}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 12px",
+                  border: "1px solid var(--line)",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  background: "#fff",
+                  fontSize: 14
+                }}
+              >
+                <input
+                  type="radio"
+                  name="preparedBy"
+                  value={name}
+                  onChange={() => choosePreparedBy(name)}
+                />
+                {name}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(!ready || preparedBy) && (
+        <>
       <div className="tabs">
         <div className={`tab ${tab === "daily" ? "active" : ""}`} onClick={() => setTab("daily")}>
           Daily Tasks
@@ -407,6 +458,8 @@ export default function Home() {
           Admin — Reports &amp; Edit Tasks
         </a>
       </footer>
+        </>
+      )}
 
       <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>
     </div>
