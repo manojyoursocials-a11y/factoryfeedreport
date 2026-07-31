@@ -12,8 +12,12 @@ export type Section = {
 export const DM_PAGES = ["Factoryfeed Official", "Factoryfeed India", "Factoryfeed Sourcing"];
 export const DM_SLOTS = ["10 AM", "2 PM", "6 PM"];
 
-// Name shown on the ops sheet header and on every exported report.
-export const PREPARED_BY = "Yuvani";
+// Names selectable on the "who's completing this?" gate. Edit this list
+// to add/remove people — no other code changes needed.
+export const PREPARED_BY_OPTIONS = ["Yuvani", "Manoj", "Social Media Intern"];
+
+// Key used inside dailyState to store which name was picked for the day.
+export const PREPARED_BY_KEY = "_preparedBy";
 
 export const DEFAULT_DAILY_TASKS: Section[] = [
   {
