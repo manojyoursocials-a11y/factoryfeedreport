@@ -336,7 +336,32 @@ export default function Home() {
           </div>
           <div className="docket-field">
             Prepared By
-            <span>{preparedBy || "—"}</span>
+            <select
+              value={preparedBy}
+              onChange={(e) => choosePreparedBy(e.target.value)}
+              style={{
+                background: "transparent",
+                color: "var(--paper)",
+                border: "none",
+                borderBottom: "1px dashed rgba(255,255,255,0.4)",
+                fontFamily: "'IBM Plex Mono',monospace",
+                fontSize: 15,
+                padding: "1px 0",
+                marginTop: 2,
+                cursor: "pointer"
+              }}
+            >
+              {!preparedBy && (
+                <option value="" disabled>
+                  Select name
+                </option>
+              )}
+              {PREPARED_BY_OPTIONS.map((name) => (
+                <option key={name} value={name} style={{ color: "#000" }}>
+                  {name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="overall-wrap">
             <div className="docket-field">Today's Progress</div>
