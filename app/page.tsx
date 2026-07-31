@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  DAILY_TASKS,
-  WEEKLY_TASKS,
+  DEFAULT_DAILY_TASKS,
+  DEFAULT_WEEKLY_TASKS,
   DM_PAGES,
   DM_SLOTS,
+  PREPARED_BY,
   Section,
   flattenKeys,
   todayKey,
@@ -35,12 +36,14 @@ function Card({
   section,
   state,
   setState,
-  cardId
+  cardId,
+  number
 }: {
   section: Section;
   state: StateMap;
   setState: (fn: (s: StateMap) => StateMap) => void;
   cardId: string;
+  number: number;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const allKeys = useMemo(() => flattenKeys(section), [section]);
@@ -57,7 +60,7 @@ function Card({
   return (
     <div className={`card ${done ? "done" : ""} ${collapsed ? "collapsed" : ""}`}>
       <div className="card-head" onClick={() => setCollapsed((c) => !c)}>
-        <div className="tag-num">{section.id.replace(/\D/g, "") || "•"}</div>
+        <div className="tag-num">{number}</div>
         <div className="card-title-wrap">
           <div className="card-title">{section.title}</div>
           <div className="card-sub">{section.sub}</div>
@@ -152,17 +155,22 @@ export default function Home() {
   const [tab, setTab] = useState<"daily" | "weekly" | "suggestions">("daily");
   const [dailyState, setDailyState] = useState<StateMap>({});
   const [weeklyState, setWeeklyState] = useState<StateMap>({});
+  const [dailyTasks, setDailyTasks] = useState<Section[]>(DEFAULT_DAILY_TASKS);
+  const [weeklyTasks, setWeeklyTasks] = useState<Section[]>(DEFAULT_WEEKLY_TASKS);
   const [ready, setReady] = useState(false);
   const [toast, setToast] = useState("");
 
   useEffect(() => {
     Promise.all([
       fetch(`/api/report?date=${date}`).then((r) => r.json()),
-      fetch(`/api/report?date=${weeklyDate}`).then((r) => r.json())
+      fetch(`/api/report?date=${weeklyDate}`).then((r) => r.json()),
+      fetch(`/api/template`).then((r) => r.json())
     ])
-      .then(([d, w]) => {
+      .then(([d, w, t]) => {
         setDailyState(d?.report?.dailyState || {});
         setWeeklyState(w?.report?.weeklyState || {});
+        if (Array.isArray(t?.daily)) setDailyTasks(t.daily);
+        if (Array.isArray(t?.weekly)) setWeeklyTasks(t.weekly);
       })
       .finally(() => setReady(true));
   }, [date, weeklyDate]);
@@ -170,8 +178,8 @@ export default function Home() {
   useDebouncedSave(date, dailyState, null, ready);
   useDebouncedSave(weeklyDate, {}, weeklyState, ready);
 
-  const dailyTotal = DAILY_TASKS.reduce((sum, s) => sum + flattenKeys(s).length, 0);
-  const dailyChecked = DAILY_TASKS.reduce(
+  const dailyTotal = dailyTasks.reduce((sum, s) => sum + flattenKeys(s).length, 0);
+  const dailyChecked = dailyTasks.reduce(
     (sum, s) => sum + flattenKeys(s).filter((k) => dailyState[`${s.id}_${k}`]).length,
     0
   );
@@ -216,9 +224,9 @@ export default function Home() {
       return out;
     }
     return (
-      `FACTORYFEED — DAILY OPS REPORT\n${dateStr}\n` +
-      block("DAILY TASKS", DAILY_TASKS, dailyState) +
-      block("WEEKLY TASKS (current week)", WEEKLY_TASKS, weeklyState)
+      `FACTORYFEED — DAILY OPS REPORT\n${dateStr}\nPrepared by: ${PREPARED_BY}\n` +
+      block("DAILY TASKS", dailyTasks, dailyState) +
+      block("WEEKLY TASKS (current week)", weeklyTasks, weeklyState)
     );
   }
 
@@ -281,11 +289,11 @@ export default function Home() {
         @media print{ body{padding:14px;} }
       </style></head><body>
       <h1>Factoryfeed &middot; Daily Ops Report</h1>
-      <div class="r-date">${dateStr}</div>
+      <div class="r-date">${dateStr} &middot; Prepared by ${PREPARED_BY}</div>
       <h2>Daily Tasks</h2>
-      ${sectionHTML(DAILY_TASKS, dailyState)}
+      ${sectionHTML(dailyTasks, dailyState)}
       <h2>Weekly Tasks (current week)</h2>
-      ${sectionHTML(WEEKLY_TASKS, weeklyState)}
+      ${sectionHTML(weeklyTasks, weeklyState)}
       </body></html>`);
     win.document.close();
     setTimeout(() => {
@@ -320,6 +328,10 @@ export default function Home() {
             Sheet No.
             <span>{sheetNumber()}</span>
           </div>
+          <div className="docket-field">
+            Prepared By
+            <span>{PREPARED_BY}</span>
+          </div>
           <div className="overall-wrap">
             <div className="docket-field">Today's Progress</div>
             <div className="overall-pct">{pct}%</div>
@@ -353,16 +365,16 @@ export default function Home() {
 
       {tab === "daily" && (
         <div>
-          {DAILY_TASKS.map((s) => (
-            <Card key={s.id} section={s} state={dailyState} setState={setDailyState} cardId={s.id} />
+          {dailyTasks.map((s, i) => (
+            <Card key={s.id} section={s} state={dailyState} setState={setDailyState} cardId={s.id} number={i + 1} />
           ))}
         </div>
       )}
 
       {tab === "weekly" && (
         <div>
-          {WEEKLY_TASKS.map((s) => (
-            <Card key={s.id} section={s} state={weeklyState} setState={setWeeklyState} cardId={s.id} />
+          {weeklyTasks.map((s, i) => (
+            <Card key={s.id} section={s} state={weeklyState} setState={setWeeklyState} cardId={s.id} number={i + 1} />
           ))}
         </div>
       )}
@@ -392,7 +404,7 @@ export default function Home() {
         Every check and note here saves to the shared server automatically — your whole team sees the same checklist.
         <br />
         <a href="/admin" className="reset-btn" style={{ textDecoration: "none", display: "inline-block" }}>
-          Admin — View Past Reports
+          Admin — Reports &amp; Edit Tasks
         </a>
       </footer>
 

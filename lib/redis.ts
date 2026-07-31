@@ -7,3 +7,8 @@ export const redis = Redis.fromEnv();
 
 export const REPORT_INDEX_KEY = "ff:reports:index"; // sorted set: member=date, score=timestamp
 export const reportKey = (date: string) => `ff:report:${date}`;
+
+// Admin-editable task lists. When absent, the app falls back to the
+// built-in defaults in lib/tasks.ts.
+export const TEMPLATE_DAILY_KEY = "ff:template:daily";
+export const TEMPLATE_WEEKLY_KEY = "ff:template:weekly";

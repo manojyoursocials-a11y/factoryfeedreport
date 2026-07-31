@@ -12,7 +12,10 @@ export type Section = {
 export const DM_PAGES = ["Factoryfeed Official", "Factoryfeed India", "Factoryfeed Sourcing"];
 export const DM_SLOTS = ["10 AM", "2 PM", "6 PM"];
 
-export const DAILY_TASKS: Section[] = [
+// Name shown on the ops sheet header and on every exported report.
+export const PREPARED_BY = "Yuvani";
+
+export const DEFAULT_DAILY_TASKS: Section[] = [
   {
     id: "d1",
     title: "App Video — Editor to Live",
@@ -102,7 +105,7 @@ export const DAILY_TASKS: Section[] = [
   }
 ];
 
-export const WEEKLY_TASKS: Section[] = [
+export const DEFAULT_WEEKLY_TASKS: Section[] = [
   {
     id: "w1",
     title: "Facebook Wholesale Group",
@@ -155,6 +158,10 @@ export function weekKey(d = new Date()): string {
   const onejan = new Date(d.getFullYear(), 0, 1);
   const week = Math.ceil(((d.getTime() - onejan.getTime()) / 86400000 + onejan.getDay() + 1) / 7);
   return `${d.getFullYear()}-W${week}`;
+}
+
+export function genId(): string {
+  return "id_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
 export function sheetNumber(d = new Date()): string {

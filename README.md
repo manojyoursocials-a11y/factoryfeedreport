@@ -3,8 +3,9 @@
 A shared daily/weekly checklist for Factoryfeed's content and app operations. Unlike the single-file version, this is a small web app: every check, DM slot, and note your team enters is saved to a real database, and there's a password-protected **/admin** page where you can browse every day's report.
 
 - **Date and Sheet No.** on the checklist are computed from the current date automatically — nothing to update by hand, they change on their own every day.
+- **Prepared By: Yuvani** is shown on the checklist header and on every exported/copied report. To change the name later, edit `PREPARED_BY` in `lib/tasks.ts` and redeploy.
 - **Reports are stored server-side** (Redis via Upstash), so the whole team shares the same checklist and history survives across devices and browsers.
-- **/admin** is gated by a password you set — only you (and whoever you share it with) can browse past reports.
+- **/admin** is gated by a password you set — only you (and whoever you share it with) can browse past reports **and edit the task list itself**: rename any title/subtitle/item, add or delete items, add or delete whole sections, or restore the original list. Saved edits apply instantly for everyone using the checklist.
 
 ## Stack
 
@@ -48,6 +49,19 @@ Your team's checklist will be live at the URL Vercel gives you, e.g. `https://fa
 - Checking a box or typing a note saves to the server about a second after you stop typing/clicking (look for "Synced to server" at the top).
 - **Download Report (PDF)** and **Copy as Text** work exactly as before, pulling from today's live state.
 - Click **Admin — View Past Reports** at the bottom of the checklist (or go straight to `/admin`) and enter the admin password to browse every day that's been saved.
+
+## Editing the task list
+
+Go to `/admin`, log in, and switch to the **Edit Tasks** tab:
+
+- Click into any title, subtitle, or item text to rename it.
+- **+ Add Item** adds a new checklist line to a section (or to a group, for the Instagram Posting section).
+- **Delete Section** removes a whole task block; the ✕ next to an item removes just that item.
+- **+ Add Daily/Weekly Task Section** creates a brand-new task block.
+- Click **Save Changes** to publish your edits — the checklist page picks them up on next load.
+- **Restore Original Task List** reverts everything back to the built-in defaults.
+
+The Instagram DM section's structure (pages and time slots) is intentionally fixed — only its title/subtitle are editable, since the time-slot format is baked into how DMs are tracked and reported.
 
 ## Changing the admin password later
 
