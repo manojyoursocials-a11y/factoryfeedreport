@@ -1,55 +1,70 @@
-# Factoryfeed — Daily Ops Sheet
+# Factoryfeed — Daily Ops Sheet (with server storage + admin archive)
 
-A single-page, self-contained checklist for Factoryfeed's daily and weekly content/app operations — app video posting, script writing, Instagram posting (Official / India / Sourcing), stories, communities, YouTube Shorts, and Instagram DM checks.
+A shared daily/weekly checklist for Factoryfeed's content and app operations. Unlike the single-file version, this is a small web app: every check, DM slot, and note your team enters is saved to a real database, and there's a password-protected **/admin** page where you can browse every day's report.
 
-No build step, no backend, no dependencies beyond two Google Fonts. Open `index.html` in any browser.
+- **Date and Sheet No.** on the checklist are computed from the current date automatically — nothing to update by hand, they change on their own every day.
+- **Reports are stored server-side** (Redis via Upstash), so the whole team shares the same checklist and history survives across devices and browsers.
+- **/admin** is gated by a password you set — only you (and whoever you share it with) can browse past reports.
 
-## Features
+## Stack
 
-- **Daily checklist** — auto-resets each new calendar day
-- **Weekly checklist** — auto-resets each new ISO week
-- **Notes field on every task** — for blockers, context, or who covered it
-- **Instagram DM tracker** — 10 AM / 2 PM / 6 PM slots across Official, India, and Sourcing pages
-- **Download Report (PDF)** — opens a print-formatted daily report you can save as PDF and send to your team
-- **Copy as Text** — copies a plain-text summary for quick sharing over WhatsApp or email
-- **Admin edit mode** — password-gated inline editing of task titles, sub-labels, and items; add or delete tasks and sections
-- Everything saves to the browser's local storage automatically — no server, no account needed
+- [Next.js](https://nextjs.org) (App Router) — frontend + API routes, deploys natively to Vercel
+- [Upstash Redis](https://upstash.com) — stores each day's checklist state, connected through the **Vercel Marketplace**
+- Plain cookie-based session for `/admin` — no third-party auth service needed
 
-## Getting started
-
-1. Download or clone this repo.
-2. Open `index.html` directly in a browser (double-click it, or drag it into Chrome).
-3. Bookmark the file locally, or host it (see below) so your team can reach it from one link.
-
-## Hosting it for your team
-
-The simplest option is **GitHub Pages**:
-
-1. Push this repo to GitHub (see commands below).
-2. In the repo, go to **Settings → Pages**.
-3. Under **Build and deployment**, set **Source** to `Deploy from a branch`, branch `main`, folder `/ (root)`.
-4. Save — GitHub will publish it at `https://<your-username>.github.io/<repo-name>/`.
-
-Share that link with your team so everyone opens the same page daily.
-
-## Admin edit mode
-
-Click the **🔒 Admin** button and enter the password to unlock inline editing of tasks (rename, add, or delete items and sections). The default password is set inside `index.html` — search for `ADMIN_PASSWORD` near the top of the `<script>` block and change it to your own before sharing the repo or the hosted link.
-
-**Note:** this is a client-side-only password meant to stop accidental edits by teammates, not real security — anyone who views the page source can find it. Don't rely on it to protect sensitive information.
-
-## Pushing to your own GitHub account
-
-From inside this folder:
+## 1. Push this to GitHub
 
 ```bash
-git remote add origin https://github.com/<your-username>/<repo-name>.git
+git init
+git add -A
+git commit -m "Initial commit: Factoryfeed ops sheet"
 git branch -M main
+git remote add origin https://github.com/<your-username>/<repo-name>.git
 git push -u origin main
 ```
 
-(Create the empty repository on GitHub first, without a README, then run the commands above.)
+(Create an empty repository on GitHub first — no README/license, since this folder already has one.)
 
-## License
+## 2. Deploy to Vercel
 
-MIT — see `LICENSE`.
+1. Go to [vercel.com/new](https://vercel.com/new) and import the GitHub repo you just pushed.
+2. Vercel will detect it as a Next.js app automatically — leave the build settings as-is.
+3. Before the first deploy (or right after), add a database:
+   - In the project, go to **Storage → Marketplace Database Providers**.
+   - Choose **Upstash** → **Redis**, and connect it to this project.
+   - This automatically adds `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` to your project's environment variables — you don't need to copy these by hand.
+4. Add two more environment variables yourself, under **Settings → Environment Variables**:
+   | Name | Value |
+   |---|---|
+   | `ADMIN_PASSWORD` | the password you want for `/admin` |
+   | `SESSION_SECRET` | any long random string (e.g. run `openssl rand -hex 32` locally) |
+5. Deploy (or redeploy if it already ran once before you added the env vars).
+
+Your team's checklist will be live at the URL Vercel gives you, e.g. `https://factoryfeed-ops.vercel.app`. The admin archive is at `https://factoryfeed-ops.vercel.app/admin`.
+
+## 3. Using it day to day
+
+- Open the main URL — the checklist for **today** loads automatically, shared by everyone who opens the link.
+- Checking a box or typing a note saves to the server about a second after you stop typing/clicking (look for "Synced to server" at the top).
+- **Download Report (PDF)** and **Copy as Text** work exactly as before, pulling from today's live state.
+- Click **Admin — View Past Reports** at the bottom of the checklist (or go straight to `/admin`) and enter the admin password to browse every day that's been saved.
+
+## Changing the admin password later
+
+Go to your Vercel project → **Settings → Environment Variables**, edit `ADMIN_PASSWORD`, and redeploy (or trigger **Redeploy** from the Deployments tab) for it to take effect. You never need to touch the code to change it.
+
+## Local development
+
+```bash
+npm install
+cp .env.example .env.local   # fill in ADMIN_PASSWORD, SESSION_SECRET, and your Upstash credentials
+npm run dev
+```
+
+Visit `http://localhost:3000`.
+
+## Notes on security
+
+- The admin password is checked **server-side** and never shipped to the browser — this is real authentication, unlike a password embedded in client-side JavaScript.
+- The admin session is a signed, httpOnly cookie valid for 12 hours; logging out (or letting it expire) requires re-entering the password.
+- Task wording (titles/items) lives in `lib/tasks.ts` in the code, not in an in-app editor — to change the task list itself, edit that file and redeploy (ask if you'd like an in-app editor added back for this).
