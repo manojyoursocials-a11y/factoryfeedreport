@@ -30,7 +30,9 @@ function ReportView({
   dailyState: StateMap;
   weeklyState: StateMap;
 }) {
-  const preparedBy = dailyState[PREPARED_BY_KEY] || "Not recorded";
+  const preparedByRaw = dailyState[PREPARED_BY_KEY];
+  const preparedByList: string[] = Array.isArray(preparedByRaw) ? preparedByRaw : preparedByRaw ? [preparedByRaw] : [];
+  const preparedBy = preparedByList.length ? preparedByList.join(", ") : "Not recorded";
   function renderSections(sections: Section[], state: StateMap) {
     return sections.map((s) => {
       const rows: React.ReactElement[] = [];
@@ -387,7 +389,8 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [section, setSection] = useState<"reports" | "edit">("reports");
 
-  const [dates, setDates] = useState<string[]>([]);
+  type SheetSummary = { key: string; date: string; preparedBy: string; savedAt: string | null };
+  const [sheets, setSheets] = useState<SheetSummary[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedReport, setSelectedReport] = useState<{ dailyState: StateMap; weeklyState: StateMap } | null>(null);
   const [templates, setTemplates] = useState<{ daily: Section[]; weekly: Section[] }>({
@@ -395,7 +398,7 @@ export default function AdminPage() {
     weekly: DEFAULT_WEEKLY_TASKS
   });
 
-  async function loadDates() {
+  async function loadSheets() {
     const res = await fetch("/api/admin/reports");
     if (res.status === 401) {
       setAuthed(false);
@@ -405,7 +408,7 @@ export default function AdminPage() {
     const data = await res.json();
     setAuthed(true);
     setChecking(false);
-    setDates((data.dates || []).filter((d: string) => !d.startsWith("weekly-")));
+    setSheets(data.sheets || []);
 
     fetch("/api/template")
       .then((r) => r.json())
@@ -413,7 +416,7 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    loadDates();
+    loadSheets();
   }, []);
 
   async function login(e: React.FormEvent) {
@@ -426,7 +429,7 @@ export default function AdminPage() {
     });
     if (res.ok) {
       setPassword("");
-      loadDates();
+      loadSheets();
     } else {
       const data = await res.json().catch(() => ({}));
       setError(data.error || "Login failed");
@@ -440,12 +443,12 @@ export default function AdminPage() {
     setSelectedReport(null);
   }
 
-  async function openDate(date: string) {
-    setSelected(date);
+  async function openSheet(sheetKey: string, dateForWeek: string) {
+    setSelected(sheetKey);
     setSelectedReport(null);
     const [dRes, wRes] = await Promise.all([
-      fetch(`/api/admin/reports?date=${date}`).then((r) => r.json()),
-      fetch(`/api/admin/reports?date=weekly-${weekKeyFor(date)}`).then((r) => r.json())
+      fetch(`/api/admin/reports?date=${sheetKey}`).then((r) => r.json()),
+      fetch(`/api/admin/reports?date=weekly-${weekKeyFor(dateForWeek)}`).then((r) => r.json())
     ]);
     setSelectedReport({
       dailyState: dRes?.report?.dailyState || {},
@@ -512,30 +515,57 @@ export default function AdminPage() {
 
       {section === "reports" && (
         <div style={{ display: "flex", gap: 20, marginTop: 20, flexWrap: "wrap", alignItems: "flex-start" }}>
-          <div style={{ flex: "1 1 240px", minWidth: 220 }}>
+          <div style={{ flex: "1 1 260px", minWidth: 240 }}>
             <h3 style={{ fontFamily: "Oswald,sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: ".05em" }}>
-              Saved Days ({dates.length})
+              Saved Sheets ({sheets.length})
             </h3>
-            <ul className="report-list">
-              {dates.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>No reports saved yet.</div>}
-              {dates.map((d) => (
-                <li
-                  key={d}
-                  className="report-row"
-                  onClick={() => openDate(d)}
-                  style={{ borderColor: selected === d ? "var(--thread)" : undefined }}
-                >
-                  <span className="r-date">{d}</span>
-                </li>
+            {sheets.length === 0 && <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>No sheets saved yet.</div>}
+            {Object.entries(
+              sheets.reduce<Record<string, SheetSummary[]>>((groups, s) => {
+                (groups[s.date] = groups[s.date] || []).push(s);
+                return groups;
+              }, {})
+            )
+              .sort(([a], [b]) => (a < b ? 1 : -1))
+              .map(([date, group]) => (
+                <div key={date} style={{ marginBottom: 14 }}>
+                  <div
+                    style={{
+                      fontFamily: "Oswald,sans-serif",
+                      fontWeight: 600,
+                      fontSize: 12.5,
+                      color: "var(--thread)",
+                      marginBottom: 6,
+                      textTransform: "uppercase",
+                      letterSpacing: ".04em"
+                    }}
+                  >
+                    {date} &middot; {group.length} sheet{group.length !== 1 ? "s" : ""}
+                  </div>
+                  <ul className="report-list">
+                    {group.map((s) => (
+                      <li
+                        key={s.key}
+                        className="report-row"
+                        onClick={() => openSheet(s.key, s.date)}
+                        style={{ borderColor: selected === s.key ? "var(--thread)" : undefined }}
+                      >
+                        <span className="r-date">{s.preparedBy}</span>
+                        <span className="r-meta">
+                          {s.savedAt ? new Date(s.savedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ))}
-            </ul>
           </div>
           <div style={{ flex: "2 1 400px", minWidth: 280 }}>
-            {!selected && <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>Select a date to view its report.</div>}
+            {!selected && <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>Select a sheet to view its report.</div>}
             {selected && !selectedReport && <div>Loading report…</div>}
             {selected && selectedReport && (
               <>
-                <h3 style={{ fontFamily: "Oswald,sans-serif" }}>{selected}</h3>
+                <h3 style={{ fontFamily: "Oswald,sans-serif" }}>{selected.split("::")[0]}</h3>
                 <ReportView
                   dailyTasks={templates.daily}
                   weeklyTasks={templates.weekly}

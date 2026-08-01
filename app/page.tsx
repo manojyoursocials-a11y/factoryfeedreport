@@ -11,25 +11,26 @@ import {
   flattenKeys,
   todayKey,
   weekKey,
-  sheetNumber
+  sheetNumber,
+  genId
 } from "@/lib/tasks";
 
 type StateMap = Record<string, any>;
 
-function useDebouncedSave(date: string, dailyState: StateMap, weeklyState: StateMap | null, ready: boolean) {
+function useDebouncedSave(key: string | null, dailyState: StateMap, weeklyState: StateMap | null, ready: boolean) {
   const timer = useRef<any>(null);
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !key) return;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       fetch("/api/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, dailyState, weeklyState: weeklyState || {} })
+        body: JSON.stringify({ date: key, dailyState, weeklyState: weeklyState || {} })
       }).catch(() => {});
     }, 700);
     return () => clearTimeout(timer.current);
-  }, [date, dailyState, weeklyState, ready]);
+  }, [key, dailyState, weeklyState, ready]);
 }
 
 function Card({
@@ -160,22 +161,24 @@ export default function Home() {
   const [ready, setReady] = useState(false);
   const [toast, setToast] = useState("");
 
+  // Each visit gets its own independent sheet once a name is entered —
+  // never loaded from, or shared with, anyone else's sheet for the day.
+  const [sheetKey, setSheetKey] = useState<string | null>(null);
+
   useEffect(() => {
     Promise.all([
-      fetch(`/api/report?date=${date}`).then((r) => r.json()),
       fetch(`/api/report?date=${weeklyDate}`).then((r) => r.json()),
       fetch(`/api/template`).then((r) => r.json())
     ])
-      .then(([d, w, t]) => {
-        setDailyState(d?.report?.dailyState || {});
+      .then(([w, t]) => {
         setWeeklyState(w?.report?.weeklyState || {});
         if (Array.isArray(t?.daily)) setDailyTasks(t.daily);
         if (Array.isArray(t?.weekly)) setWeeklyTasks(t.weekly);
       })
       .finally(() => setReady(true));
-  }, [date, weeklyDate]);
+  }, [weeklyDate]);
 
-  useDebouncedSave(date, dailyState, null, ready);
+  useDebouncedSave(sheetKey, dailyState, null, ready);
   useDebouncedSave(weeklyDate, {}, weeklyState, ready);
 
   const dailyTotal = dailyTasks.reduce((sum, s) => sum + flattenKeys(s).length, 0);
@@ -201,11 +204,9 @@ export default function Home() {
     e.preventDefault();
     const name = nameInput.trim();
     if (!name) return;
-    setDailyState((s) => {
-      const existing: string[] = Array.isArray(s[PREPARED_BY_KEY]) ? s[PREPARED_BY_KEY] : s[PREPARED_BY_KEY] ? [s[PREPARED_BY_KEY]] : [];
-      const list = existing.includes(name) ? existing : [...existing, name];
-      return { ...s, [PREPARED_BY_KEY]: list };
-    });
+    const newKey = `${date}::${genId()}`;
+    setSheetKey(newKey);
+    setDailyState({ [PREPARED_BY_KEY]: [name] });
     setNameInput("");
     setNameGateOpen(false);
   }
@@ -390,8 +391,8 @@ export default function Home() {
         <div className="login-box" style={{ marginTop: 40 }}>
           <h2>Who's checking in?</h2>
           <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>
-            Enter your name to continue. This is asked every time the sheet is opened, and adds you to today's list of
-            contributors — it won't remove or replace anyone already checked in today.
+            Enter your name to start a fresh checklist. Every visit gets its own sheet — you won't see anyone else's
+            progress, and yours won't be affected by anyone else's.
           </p>
           <form onSubmit={submitName}>
             <input
@@ -403,11 +404,6 @@ export default function Home() {
             />
             <button type="submit">Continue</button>
           </form>
-          {preparedByList.length > 0 && (
-            <p style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 12 }}>
-              Already checked in today: {preparedByList.join(", ")}
-            </p>
-          )}
         </div>
       )}
 
