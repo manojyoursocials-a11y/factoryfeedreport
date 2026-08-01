@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_DAILY_TASKS,
   DEFAULT_WEEKLY_TASKS,
   DM_PAGES,
   DM_SLOTS,
-  PREPARED_BY_OPTIONS,
   PREPARED_BY_KEY,
   Section,
   flattenKeys,
@@ -185,10 +184,30 @@ export default function Home() {
     0
   );
   const pct = dailyTotal ? Math.round((dailyChecked / dailyTotal) * 100) : 0;
-  const preparedBy: string = dailyState[PREPARED_BY_KEY] || "";
 
-  function choosePreparedBy(name: string) {
-    setDailyState((s) => ({ ...s, [PREPARED_BY_KEY]: name }));
+  const preparedByList: string[] = Array.isArray(dailyState[PREPARED_BY_KEY])
+    ? dailyState[PREPARED_BY_KEY]
+    : dailyState[PREPARED_BY_KEY]
+    ? [dailyState[PREPARED_BY_KEY]]
+    : [];
+
+  // Every page visit asks for a name, regardless of whether one was
+  // already entered today. This resets to true on every mount, and only
+  // becomes false once this visitor submits their name.
+  const [nameGateOpen, setNameGateOpen] = useState(true);
+  const [nameInput, setNameInput] = useState("");
+
+  function submitName(e: React.FormEvent) {
+    e.preventDefault();
+    const name = nameInput.trim();
+    if (!name) return;
+    setDailyState((s) => {
+      const existing: string[] = Array.isArray(s[PREPARED_BY_KEY]) ? s[PREPARED_BY_KEY] : s[PREPARED_BY_KEY] ? [s[PREPARED_BY_KEY]] : [];
+      const list = existing.includes(name) ? existing : [...existing, name];
+      return { ...s, [PREPARED_BY_KEY]: list };
+    });
+    setNameInput("");
+    setNameGateOpen(false);
   }
 
   function showToast(msg: string) {
@@ -230,7 +249,7 @@ export default function Home() {
       return out;
     }
     return (
-      `FACTORYFEED — DAILY OPS REPORT\n${dateStr}\nPrepared by: ${preparedBy || "—"}\n` +
+      `FACTORYFEED — DAILY OPS REPORT\n${dateStr}\nPrepared by: ${preparedByList.join(", ") || "—"}\n` +
       block("DAILY TASKS", dailyTasks, dailyState) +
       block("WEEKLY TASKS (current week)", weeklyTasks, weeklyState)
     );
@@ -295,7 +314,7 @@ export default function Home() {
         @media print{ body{padding:14px;} }
       </style></head><body>
       <h1>Factoryfeed &middot; Daily Ops Report</h1>
-      <div class="r-date">${dateStr} &middot; Prepared by ${preparedBy || "—"}</div>
+      <div class="r-date">${dateStr} &middot; Prepared by ${preparedByList.join(", ") || "—"}</div>
       <h2>Daily Tasks</h2>
       ${sectionHTML(dailyTasks, dailyState)}
       <h2>Weekly Tasks (current week)</h2>
@@ -336,32 +355,9 @@ export default function Home() {
           </div>
           <div className="docket-field">
             Prepared By
-            <select
-              value={preparedBy}
-              onChange={(e) => choosePreparedBy(e.target.value)}
-              style={{
-                background: "transparent",
-                color: "var(--paper)",
-                border: "none",
-                borderBottom: "1px dashed rgba(255,255,255,0.4)",
-                fontFamily: "'IBM Plex Mono',monospace",
-                fontSize: 15,
-                padding: "1px 0",
-                marginTop: 2,
-                cursor: "pointer"
-              }}
-            >
-              {!preparedBy && (
-                <option value="" disabled>
-                  Select name
-                </option>
-              )}
-              {PREPARED_BY_OPTIONS.map((name) => (
-                <option key={name} value={name} style={{ color: "#000" }}>
-                  {name}
-                </option>
-              ))}
-            </select>
+            <span title={preparedByList.join(", ")}>
+              {preparedByList.length ? preparedByList.join(", ") : "—"}
+            </span>
           </div>
           <div className="overall-wrap">
             <div className="docket-field">Today's Progress</div>
@@ -374,15 +370,15 @@ export default function Home() {
         <div className="action-row">
           <div
             className="action-btn"
-            onClick={preparedBy ? downloadReport : undefined}
-            style={!preparedBy ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+            onClick={preparedByList.length ? downloadReport : undefined}
+            style={!preparedByList.length ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
           >
             ⬇ Download Report (PDF)
           </div>
           <div
             className="action-btn secondary"
-            onClick={preparedBy ? copyReport : undefined}
-            style={!preparedBy ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+            onClick={preparedByList.length ? copyReport : undefined}
+            style={!preparedByList.length ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
           >
             Copy as Text (WhatsApp/Email)
           </div>
@@ -390,42 +386,32 @@ export default function Home() {
         </div>
       </header>
 
-      {ready && !preparedBy && (
+      {ready && nameGateOpen && (
         <div className="login-box" style={{ marginTop: 40 }}>
-          <h2>Who's completing today's checklist?</h2>
+          <h2>Who's checking in?</h2>
           <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>
-            Select your name to continue. This is required once per day and appears on today's saved report.
+            Enter your name to continue. This is asked every time the sheet is opened, and adds you to today's list of
+            contributors — it won't remove or replace anyone already checked in today.
           </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
-            {PREPARED_BY_OPTIONS.map((name) => (
-              <label
-                key={name}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px 12px",
-                  border: "1px solid var(--line)",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  background: "#fff",
-                  fontSize: 14
-                }}
-              >
-                <input
-                  type="radio"
-                  name="preparedBy"
-                  value={name}
-                  onChange={() => choosePreparedBy(name)}
-                />
-                {name}
-              </label>
-            ))}
-          </div>
+          <form onSubmit={submitName}>
+            <input
+              type="text"
+              placeholder="Your name"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              autoFocus
+            />
+            <button type="submit">Continue</button>
+          </form>
+          {preparedByList.length > 0 && (
+            <p style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 12 }}>
+              Already checked in today: {preparedByList.join(", ")}
+            </p>
+          )}
         </div>
       )}
 
-      {(!ready || preparedBy) && (
+      {(!ready || !nameGateOpen) && (
         <>
       <div className="tabs">
         <div className={`tab ${tab === "daily" ? "active" : ""}`} onClick={() => setTab("daily")}>
